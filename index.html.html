@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moldura #EuTôComACris</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Montserrat', sans-serif;
+    background: #0d1e3f;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .header { text-align: center; margin-bottom: 20px; }
+  .header h1 { font-weight: 900; font-size: 1.4rem; color: #fff; line-height: 1.2; }
+  .header h1 span { color: #e8612a; }
+  .header p { color: #a0b4d0; font-size: 0.8rem; margin-top: 5px; }
+  .card {
+    background: #152847;
+    border-radius: 20px;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  canvas#main { display: block; width: 290px; height: 290px; margin-bottom: 18px; }
+  #fileInput { display: none; }
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    border: none;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: #e8612a; color: #fff; }
+  .btn-primary:hover { background: #d0521f; }
+  .btn-secondary { background: transparent; color: #e8612a; border: 2px solid #e8612a; display: none; }
+  .btn-secondary:hover { background: #e8612a; color: #fff; }
+  hr { border: none; border-top: 1px solid #1e3a6a; width: 100%; margin: 12px 0; }
+  .hashtag { color: #e8612a; font-weight: 700; font-size: 0.95rem; }
+  .sub { color: #5a7ea8; font-size: 0.7rem; margin-top: 4px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Foto de Perfil<br><span>#EuTôComACris</span></h1>
+  <p>Mostre seu apoio à Cris Paiva!</p>
+</div>
+
+<div class="card">
+  <canvas id="main" width="500" height="500"></canvas>
+  <input type="file" id="fileInput" accept="image/*">
+  <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📷 Escolher minha foto</button>
+  <button class="btn btn-secondary" id="btnDown" onclick="baixar()">⬇️ Baixar foto pronta</button>
+  <hr>
+  <div class="hashtag">#EuTôComACris</div>
+  <p class="sub">Pré-candidata a Deputada Federal · Amazonas</p>
+</div>
+
+<canvas id="export" width="500" height="500" style="display:none"></canvas>
+
+<script>
+const S  = 500;
+const CX = S / 2;
+const CY = S / 2;
+const R  = 215; // raio da foto
+
+let userImg = null;
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      userImg = img;
+      document.getElementById('btnDown').style.display = 'block';
+      render(document.getElementById('main').getContext('2d'));
+      render(document.getElementById('export').getContext('2d'));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function render(ctx) {
+  ctx.clearRect(0, 0, S, S);
+
+  // ── 1. Foto clipada ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (userImg) {
+    const scale = Math.max((R * 2) / userImg.width, (R * 2) / userImg.height);
+    const w = userImg.width * scale;
+    const h = userImg.height * scale;
+    ctx.drawImage(userImg, CX - w / 2, CY - h / 2, w, h);
+  } else {
+    ctx.fillStyle = '#1a3a6e';
+    ctx.fillRect(0, 0, S, S);
+    ctx.fillStyle = 'rgba(90,126,168,0.3)';
+    ctx.beginPath(); ctx.arc(CX, CY - 25, 42, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(CX, CY + 95, 72, Math.PI, 0); ctx.fill();
+  }
+
+  // ── 2. Gradiente inferior (dentro do clip) ──
+  // Faixa menor — só os últimos 30% do raio
+  const gStart = CY + R * 0.55;
+  const gEnd   = CY + R;
+  const grad = ctx.createLinearGradient(0, gStart, 0, gEnd);
+  grad.addColorStop(0,    'rgba(8,18,48,0)');
+  grad.addColorStop(0.55, 'rgba(8,18,48,0.82)');
+  grad.addColorStop(1,    'rgba(8,18,48,0.97)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, gStart, S, gEnd - gStart);
+
+  ctx.restore();
+
+  // ── 3. Bordas ──
+  anel(ctx, CX, CY, R + 5,  '#e8612a', 7);
+  anel(ctx, CX, CY, R + 14, '#0d1e3f', 8);
+  anel(ctx, CX, CY, R + 22, '#e8612a', 6);
+
+  // ── 4. Textos — todos calculados para caber DENTRO do círculo ──
+  // Layout (coordenadas absolutas no canvas 500x500, R=215, centro=250):
+  //
+  //   y=350  → "EU TÔ COM A"   (font 20px, maxW 200)
+  //   y=388  → "CRIS PAIVA"    (font 46px, maxW 200)
+  //   y=400  → linha laranja
+  //   y=418  → "DEPUTADA FEDERAL"  (font 13px, maxW 185)
+  //   y=434  → "DO AMAZONAS"       (font 13px, maxW 185)
+  //
+  // Verificação: ponto mais baixo = y=434+descend≈440 < CY+R=465 ✓
+  // Largura: corda a y=434 → dist ao centro = 434-250=184 → corda=2*sqrt(215²-184²)≈2*111=222 → maxW=200 ✓
+
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'alphabetic';
+
+  // "EU TÔ COM A"
+  ctx.font      = '600 20px Montserrat, Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillText('EU TÔ COM A', CX, 352, 200);
+
+  // "CRIS PAIVA"
+  ctx.font      = '900 46px Montserrat, Arial';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('CRIS PAIVA', CX, 398, 200);
+
+  // linha laranja fina
+  ctx.fillStyle = '#e8612a';
+  ctx.fillRect(CX - 45, 404, 90, 3);
+
+  // "DEPUTADA FEDERAL"
+  ctx.font      = '600 13px Montserrat, Arial';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('DEPUTADA FEDERAL', CX, 422, 185);
+
+  // "DO AMAZONAS"
+  ctx.font      = '600 13px Montserrat, Arial';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('DO AMAZONAS', CX, 438, 185);
+}
+
+function anel(ctx, x, y, r, cor, lw) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = cor;
+  ctx.lineWidth = lw;
+  ctx.stroke();
+}
+
+function baixar() {
+  render(document.getElementById('export').getContext('2d'));
+  const a = document.createElement('a');
+  a.download = 'eu-to-com-cris-paiva.png';
+  a.href = document.getElementById('export').toDataURL('image/png');
+  a.click();
+}
+
+render(document.getElementById('main').getContext('2d'));
+</script>
+</body>
+</html>
